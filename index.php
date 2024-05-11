@@ -10,8 +10,10 @@ error_reporting(E_ALL);
 $base_url = "https://i.28hours.org/";
 $s3_bucket = "apro.screenshots";
 
-# Sample screenshot name: Screen Shot 2017-05-13 at 13.47.23.png
-# New sample screenshot name: Screenshot 2018-10-01 at 07.21.30.png
+# Sample screenshot names:
+# Screenshot 2018-10-01 at 07.21.30.png
+# Screenshot 2018-10-01 at 3.41.31 PM.png
+# @todo handle both at the same time.
 
 function notify($message, $title = "Started uploading!"): void
 {
