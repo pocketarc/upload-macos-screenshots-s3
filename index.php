@@ -8,7 +8,7 @@ ini_set('error_log', $log_file);
 error_reporting(E_ALL);
 
 $base_url = "https://i.28hours.org/";
-$s3_bucket = "apro.screenshots";
+$s3_bucket = "i28hours";
 
 # Sample screenshot names:
 # Screenshot 2018-10-01 at 07.21.30.png
@@ -45,7 +45,7 @@ foreach ($iterator as $file) {
 		shell_exec("$file_to_clipboard " . escapeshellarg($folder . $new_filename));
 
 		$s3_bucket = rtrim($s3_bucket, "/");
-		$output = shell_exec("$aws s3 cp " . escapeshellarg($folder . $new_filename) . " " . escapeshellarg("s3://$s3_bucket/$new_filename") . " --acl public-read 2>&1");
+		$output = shell_exec("$aws s3 cp " . escapeshellarg($folder . $new_filename) . " " . escapeshellarg("s3://$s3_bucket/$new_filename") . " 2>&1");
 
 		$elapsed = microtime(true) - $time;
 		$remaining = (5 - $elapsed) * 1000 * 1000; # Seconds to milliseconds, to microseconds.
@@ -54,7 +54,6 @@ foreach ($iterator as $file) {
 		}
 
 		if (!str_contains($output, "upload failed:")) {
-			echo $output;
 			if (file_exists($folder . $new_filename)) {
 				unlink($folder . $new_filename);
 			}
@@ -64,7 +63,7 @@ foreach ($iterator as $file) {
 			shell_exec("echo " . escapeshellarg($url) . " | tr -d '\\n' | pbcopy");
 			notify($new_filename, "Image Uploaded!");
 		} else {
-			notify("The image has been kept in the desktop.", "Failed to upload.");
+			notify($output, "Failed to upload.");
 		}
 	}
 }
