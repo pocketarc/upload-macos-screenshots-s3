@@ -1,4 +1,5 @@
 import { S3Client } from "bun";
+import type { Readable } from "node:stream";
 
 export interface UploadResult {
     success: boolean;
@@ -6,19 +7,14 @@ export interface UploadResult {
     error?: string;
 }
 
-async function sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-export async function uploadToS3(
-    filePath: string,
+export async function uploadStreamToS3(
+    stream: Readable,
     filename: string,
     bucket: string,
     region: string,
     baseUrl: string,
     accessKeyId: string,
     secretAccessKey: string,
-    maxRetries = 3,
 ): Promise<UploadResult> {
     const client = new S3Client({
         accessKeyId,
@@ -27,32 +23,20 @@ export async function uploadToS3(
         virtualHostedStyle: true,
     });
 
-    const file = Bun.file(filePath);
     const contentType = filename.endsWith(".webp") ? "image/webp" : "image/png";
+    const file = client.file(filename);
+    const writer = file.writer({ type: contentType });
 
-    let lastError: Error | undefined;
-
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-            await client.write(filename, file, {
-                type: contentType,
-            });
-
-            const url = `${baseUrl.replace(/\/$/, "")}/${filename}`;
-            return { success: true, url };
-        } catch (error) {
-            lastError = error as Error;
-            console.error(`S3 upload attempt ${attempt}/${maxRetries} failed:`, error);
-
-            if (attempt < maxRetries) {
-                const delay = 2 ** (attempt - 1) * 1000; // 1s, 2s, 4s
-                await sleep(delay);
-            }
+    try {
+        // Pump chunks from Node stream to Bun S3 writer
+        for await (const chunk of stream) {
+            writer.write(chunk);
         }
-    }
+        await writer.end();
 
-    return {
-        success: false,
-        error: lastError?.message || "Unknown upload error",
-    };
+        const url = `${baseUrl.replace(/\/$/, "")}/${filename}`;
+        return { success: true, url };
+    } catch (error) {
+        return { success: false, error: (error as Error).message };
+    }
 }

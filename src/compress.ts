@@ -1,67 +1,30 @@
-import { copyFile, stat, unlink } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { stat } from "node:fs/promises";
+import { PassThrough } from "node:stream";
+import sharp from "sharp";
 
-export interface CompressionResult {
-    outputPath: string;
-    filename: string;
+export interface CompressionStream {
+    stream: PassThrough;
     originalSize: number;
-    compressedSize: number;
-    elapsedMs: number;
-    keptOriginal: boolean;
+    getCompressedSize: () => number | undefined;
 }
 
-export async function compressToWebp(
-    inputPath: string,
-    baseName: string,
-    cwebpPath: string,
-): Promise<CompressionResult> {
-    const tempDir = tmpdir();
-    const webpFilename = `${baseName}.webp`;
-    const pngFilename = `${baseName}.png`;
-    const webpPath = join(tempDir, webpFilename);
-
-    const startTime = performance.now();
-
-    const proc = Bun.spawn([cwebpPath, "-lossless", "-m", "6", "-quiet", inputPath, "-o", webpPath], {
-        stdout: "pipe",
-        stderr: "pipe",
-    });
-
-    const exitCode = await proc.exited;
-    const elapsedMs = Math.round(performance.now() - startTime);
-
-    if (exitCode !== 0) {
-        throw new Error(`cwebp failed with exit code ${exitCode}`);
-    }
-
+export async function createCompressionStream(inputPath: string): Promise<CompressionStream> {
     const originalStat = await stat(inputPath);
-    const webpStat = await stat(webpPath);
+    let compressedSize: number | undefined;
 
-    const originalSize = originalStat.size;
-    const compressedSize = webpStat.size;
+    const passThrough = new PassThrough();
 
-    // If WebP is larger, keep the original PNG
-    if (compressedSize >= originalSize) {
-        await unlink(webpPath);
-        const pngPath = join(tempDir, pngFilename);
-        await copyFile(inputPath, pngPath);
-        return {
-            outputPath: pngPath,
-            filename: pngFilename,
-            originalSize,
-            compressedSize: originalSize,
-            elapsedMs,
-            keptOriginal: true,
-        };
-    }
+    sharp(inputPath)
+        .webp({ lossless: true, effort: 6 })
+        .on("info", (info) => {
+            compressedSize = info.size;
+            console.log(`  [Sharp] format=${info.format}, size=${info.size} bytes`);
+        })
+        .pipe(passThrough);
 
     return {
-        outputPath: webpPath,
-        filename: webpFilename,
-        originalSize,
-        compressedSize,
-        elapsedMs,
-        keptOriginal: false,
+        stream: passThrough,
+        originalSize: originalStat.size,
+        getCompressedSize: () => compressedSize,
     };
 }

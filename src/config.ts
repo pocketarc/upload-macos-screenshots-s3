@@ -92,6 +92,5 @@ export function loadConfig() {
         sftpPath: env.SFTP_PATH,
         desktopPath: join(home, "Desktop"),
         trashPath: join(home, ".Trash"),
-        cwebpPath: "/opt/homebrew/bin/cwebp",
     };
 }

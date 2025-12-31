@@ -1,13 +1,13 @@
-import { readdir, unlink } from "node:fs/promises";
+import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import anyAscii from "any-ascii";
 import { backupToSftp } from "./backup";
 import { copyImageToClipboard, copyTextToClipboard } from "./clipboard";
-import { type CompressionResult, compressToWebp } from "./compress";
+import { createCompressionStream } from "./compress";
 import { loadConfig } from "./config";
 import { notify, notifyError, notifySuccess } from "./notify";
 import { moveToTrash } from "./trash";
-import { uploadToS3 } from "./upload";
+import { uploadStreamToS3 } from "./upload";
 
 const POLL_INTERVAL_MS = 50;
 
@@ -88,6 +88,7 @@ function generateFilename(date: Date): string {
 
 async function processScreenshot(filePath: string, filename: string, config: ReturnType<typeof loadConfig>) {
     console.log(`Processing: ${filename}`);
+    const startTime = performance.now();
 
     // 1. Copy original to clipboard immediately (for instant paste)
     await copyImageToClipboard(filePath);
@@ -101,28 +102,27 @@ async function processScreenshot(filePath: string, filename: string, config: Ret
     }
 
     const baseName = generateFilename(date);
+    const webpFilename = `${baseName}.webp`;
 
-    // 3. Compress to WebP
-    let compression: CompressionResult;
+    // 3. Create compression stream (single stream to S3)
+    let originalSize: number;
+    let getCompressedSize: () => number | undefined;
+    let stream: import("node:stream").PassThrough;
     try {
-        compression = await compressToWebp(filePath, baseName, config.cwebpPath);
-        const savings = Math.round((1 - compression.compressedSize / compression.originalSize) * 100);
-        console.log(`PNG:  ${humanizeBytes(compression.originalSize)}`);
-        console.log(
-            `WebP: ${humanizeBytes(compression.compressedSize)} (${savings}% saved, ${compression.elapsedMs}ms)`,
-        );
+        const result = await createCompressionStream(filePath);
+        originalSize = result.originalSize;
+        getCompressedSize = result.getCompressedSize;
+        stream = result.stream;
+        console.log(`PNG: ${humanizeBytes(originalSize)}`);
     } catch (error) {
         await notifyError(`WebP conversion failed: ${error}`, "Compression Error");
         return;
     }
 
-    // 4. Copy compressed file to clipboard
-    await copyImageToClipboard(compression.outputPath);
-
-    // 5. Upload to S3
-    const uploadResult = await uploadToS3(
-        compression.outputPath,
-        compression.filename,
+    // 4. Upload to S3
+    const uploadResult = await uploadStreamToS3(
+        stream,
+        webpFilename,
         config.s3Bucket,
         config.s3Region,
         config.baseUrl,
@@ -132,37 +132,37 @@ async function processScreenshot(filePath: string, filename: string, config: Ret
 
     if (!uploadResult.success || !uploadResult.url) {
         await notifyError(`S3 upload failed: ${uploadResult.error}`, "Upload Failed");
-        await unlink(compression.outputPath).catch(() => {});
         return;
     }
 
-    // 6. Copy URL to clipboard and notify with stats
+    // 5. Get compressed size from Sharp info event
+    const compressedSize = getCompressedSize() ?? 0;
+    const elapsedMs = Math.round(performance.now() - startTime);
+    const savings = compressedSize > 0 ? Math.round((1 - compressedSize / originalSize) * 100) : 0;
+    console.log(`WebP: ${humanizeBytes(compressedSize)} (${savings}% saved, ${elapsedMs}ms)`);
+
+    // 6. Copy URL to clipboard and notify
     await copyTextToClipboard(uploadResult.url);
-    const savings = Math.round((1 - compression.compressedSize / compression.originalSize) * 100);
     console.log(`Uploaded: ${uploadResult.url} (${savings}% saved)`);
-    await notifySuccess(compression.filename, compression.originalSize, compression.compressedSize);
+    await notifySuccess(webpFilename, originalSize, compressedSize);
 
     // 7. Background: SFTP backup + trash (fire-and-forget)
     (async () => {
         try {
-            // Backup compressed file to SFTP
+            // Download from S3 and backup to SFTP
             await backupToSftp(
-                compression.outputPath,
-                compression.filename,
+                uploadResult.url,
+                webpFilename,
                 config.sftpHost,
                 config.sftpUser,
                 config.sftpKeyPath,
                 config.sftpPath,
             );
-            console.log(`SFTP backup: ${compression.filename} → ${config.sftpHost}:${config.sftpPath}`);
+            console.log(`SFTP backup: ${webpFilename} → ${config.sftpHost}:${config.sftpPath}`);
 
             // Move original to trash
             await moveToTrash(filePath, config.trashPath);
             console.log(`Trashed: ${filename}`);
-
-            // Clean up temp file
-            await unlink(compression.outputPath).catch(() => {});
-            console.log(`Cleanup complete for ${filename}`);
         } catch (error) {
             console.error("Background cleanup error:", error);
         }
@@ -179,7 +179,7 @@ async function main() {
 
     const processedFiles = new Set<string>();
 
-    // Initial scan - mark existing files as processed
+    // Initial scan - mark existing files as processed @TODO REMOVE THIS LATER
     const initialFiles = await readdir(config.desktopPath);
     for (const file of initialFiles) {
         if (file.startsWith("Screenshot") && file.endsWith(".png")) {
@@ -188,7 +188,6 @@ async function main() {
     }
     console.log(`Found ${processedFiles.size} existing screenshots (will be ignored)`);
 
-    // Polling loop
     while (true) {
         try {
             const files = await readdir(config.desktopPath);
@@ -198,7 +197,6 @@ async function main() {
                     processedFiles.add(file);
                     const filePath = join(config.desktopPath, file);
 
-                    // Process in background to keep polling responsive
                     processScreenshot(filePath, file, config).catch((error) => {
                         console.error(`Error processing ${file}:`, error);
                     });
