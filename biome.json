@@ -1,0 +1,99 @@
+{
+    "$schema": "https://biomejs.dev/schemas/2.3.10/schema.json",
+    "vcs": {
+        "enabled": true,
+        "clientKind": "git",
+        "useIgnoreFile": true,
+        "defaultBranch": "main"
+    },
+    "files": {
+        "ignoreUnknown": false,
+        "includes": ["**", "!**/node_modules", "!**/.next", "!**/out", "!**/playwright-report", "!**/test-results"]
+    },
+    "formatter": {
+        "enabled": true,
+        "useEditorconfig": true,
+        "formatWithErrors": true,
+        "indentStyle": "space",
+        "indentWidth": 4,
+        "lineEnding": "lf",
+        "lineWidth": 120
+    },
+    "assist": {
+        "actions": {
+            "source": {
+                "organizeImports": "on"
+            }
+        }
+    },
+    "linter": {
+        "enabled": true,
+        "rules": {
+            "suspicious": {
+                "noArrayIndexKey": "warn"
+            },
+            "correctness": {
+                "noUndeclaredDependencies": "error",
+                "noUndeclaredVariables": "error"
+            },
+            "style": {
+                "noDefaultExport": "error",
+                "useBlockStatements": {
+                    "level": "error",
+                    "fix": "safe"
+                },
+                "noUnusedTemplateLiteral": {
+                    "level": "error",
+                    "fix": "safe"
+                },
+                "useNamingConvention": {
+                    "level": "warn",
+                    "options": {
+                        "strictCase": false,
+                        "conventions": [
+                            {
+                                "selector": {
+                                    "kind": "typeProperty"
+                                },
+                                "formats": ["snake_case", "camelCase"]
+                            },
+                            {
+                                "selector": {
+                                    "kind": "objectLiteralProperty"
+                                },
+                                "formats": ["snake_case", "camelCase", "CONSTANT_CASE"]
+                            },
+                            {
+                                "selector": {
+                                    "kind": "classProperty"
+                                },
+                                "formats": ["snake_case", "camelCase"]
+                            },
+                            {
+                                "selector": {
+                                    "kind": "classGetter"
+                                },
+                                "formats": ["snake_case", "camelCase"]
+                            }
+                        ]
+                    }
+                },
+                "noParameterAssign": "error",
+                "useAsConstAssertion": "error",
+                "useDefaultParameterLast": "error",
+                "useEnumInitializers": "error",
+                "useSelfClosingElements": "error",
+                "useSingleVarDeclarator": "error",
+                "useNumberNamespace": "error",
+                "noInferrableTypes": "error",
+                "noUselessElse": "error"
+            }
+        }
+    },
+    "javascript": {
+        "globals": ["Bun"],
+        "formatter": {
+            "quoteProperties": "preserve"
+        }
+    }
+}

@@ -1,1 +1,4 @@
 upload-screenshots.errors.txt
+node_modules
+tsconfig.tsbuildinfo
+.env
