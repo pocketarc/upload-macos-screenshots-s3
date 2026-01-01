@@ -4,6 +4,7 @@
     "type": "module",
     "scripts": {
         "dev": "bun run src/index.ts",
+        "build": "bun build src/index.ts --compile --minify --bytecode --target bun --outfile screenshot-uploader --external sharp",
         "lint": "tsc --noEmit && biome check --write ."
     },
     "dependencies": {
