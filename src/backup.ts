@@ -1,25 +1,14 @@
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { unlink } from "node:fs/promises";
-
 export async function backupToSftp(
-    s3Url: string,
+    localPath: string,
     filename: string,
     host: string,
     user: string,
     keyPath: string,
     remotePath: string,
 ): Promise<void> {
-    const tempPath = join(tmpdir(), `sftp-backup-${filename}`);
     const remoteDestination = `${user}@${host}:${remotePath.replace(/\/$/, "")}/${filename}`;
 
     try {
-        const response = await fetch(s3Url);
-        if (!response.ok) {
-            throw new Error(`Failed to download from S3: ${response.status}`);
-        }
-        await Bun.write(tempPath, response);
-
         const proc = Bun.spawn(
             [
                 "scp",
@@ -29,7 +18,7 @@ export async function backupToSftp(
                 "StrictHostKeyChecking=accept-new",
                 "-o",
                 "BatchMode=yes",
-                tempPath,
+                localPath,
                 remoteDestination,
             ],
             {
@@ -46,7 +35,5 @@ export async function backupToSftp(
         }
     } catch (error) {
         console.error("SFTP backup error:", error);
-    } finally {
-        await unlink(tempPath);
     }
 }

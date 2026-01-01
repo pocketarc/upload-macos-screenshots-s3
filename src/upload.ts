@@ -1,5 +1,5 @@
-import { S3Client } from "bun";
 import type { Readable } from "node:stream";
+import { S3Client } from "bun";
 
 export interface UploadResult {
     success: boolean;
@@ -15,6 +15,7 @@ export async function uploadStreamToS3(
     baseUrl: string,
     accessKeyId: string,
     secretAccessKey: string,
+    localPath?: string,
 ): Promise<UploadResult> {
     const client = new S3Client({
         accessKeyId,
@@ -24,15 +25,19 @@ export async function uploadStreamToS3(
     });
 
     const contentType = filename.endsWith(".webp") ? "image/webp" : "image/png";
-    const file = client.file(filename);
-    const writer = file.writer({ type: contentType });
+    const s3Writer = client.file(filename).writer({ type: contentType });
+    const localWriter = localPath ? Bun.file(localPath).writer() : null;
 
     try {
-        // Pump chunks from Node stream to Bun S3 writer
+        // Pump chunks to both S3 and local file
         for await (const chunk of stream) {
-            writer.write(chunk);
+            s3Writer.write(chunk);
+            localWriter?.write(chunk);
         }
-        await writer.end();
+        await s3Writer.end();
+        if (localWriter) {
+            await localWriter.end();
+        }
 
         const url = `${baseUrl.replace(/\/$/, "")}/${filename}`;
         return { success: true, url };

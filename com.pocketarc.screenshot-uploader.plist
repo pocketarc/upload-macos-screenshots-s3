@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.pocketarc.screenshot-uploader</string>
+
+	<key>ProgramArguments</key>
+	<array>
+		<string>/Users/bruno/.bun/bin/bun</string>
+		<string>run</string>
+		<string>src/index.ts</string>
+	</array>
+
+	<key>WorkingDirectory</key>
+	<string>/Users/bruno/htdocs/upload-macos-screenshots-s3</string>
+
+	<key>RunAtLoad</key>
+	<true/>
+
+	<key>KeepAlive</key>
+	<true/>
+
+	<key>StandardOutPath</key>
+	<string>/tmp/screenshot-uploader.log</string>
+
+	<key>StandardErrorPath</key>
+	<string>/tmp/screenshot-uploader.err</string>
+</dict>
+</plist>

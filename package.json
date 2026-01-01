@@ -4,7 +4,6 @@
     "type": "module",
     "scripts": {
         "dev": "bun run src/index.ts",
-        "build": "bun build src/index.ts --compile --minify --bytecode --target bun --outfile upload-macos-screenshots-s3",
         "lint": "tsc --noEmit && biome check --write ."
     },
     "dependencies": {

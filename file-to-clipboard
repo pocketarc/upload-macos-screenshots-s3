@@ -1,4 +1,0 @@
-#!/usr/bin/osascript
-on run args
-  set the clipboard to (read POSIX file (POSIX path of (first item of args)) as «class PNGf»)
-end

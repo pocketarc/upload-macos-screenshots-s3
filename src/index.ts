@@ -1,4 +1,5 @@
-import { readdir } from "node:fs/promises";
+import { readdir, stat, unlink } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import anyAscii from "any-ascii";
 import { backupToSftp } from "./backup";
@@ -103,8 +104,9 @@ async function processScreenshot(filePath: string, filename: string, config: Ret
 
     const baseName = generateFilename(date);
     const webpFilename = `${baseName}.webp`;
+    const tempPath = join(tmpdir(), webpFilename);
 
-    // 3. Create compression stream (single stream to S3)
+    // 3. Create compression stream
     let originalSize: number;
     let getCompressedSize: () => number | undefined;
     let stream: import("node:stream").PassThrough;
@@ -119,7 +121,7 @@ async function processScreenshot(filePath: string, filename: string, config: Ret
         return;
     }
 
-    // 4. Upload to S3
+    // 4. Upload to S3 (also writes to local temp file)
     const uploadResult = await uploadStreamToS3(
         stream,
         webpFilename,
@@ -128,20 +130,23 @@ async function processScreenshot(filePath: string, filename: string, config: Ret
         config.baseUrl,
         config.awsAccessKeyId,
         config.awsSecretAccessKey,
+        tempPath,
     );
 
     if (!uploadResult.success || !uploadResult.url) {
         await notifyError(`S3 upload failed: ${uploadResult.error}`, "Upload Failed");
+        await unlink(tempPath).catch(() => {});
         return;
     }
 
-    // 5. Get compressed size from Sharp info event
-    const compressedSize = getCompressedSize() ?? 0;
+    // 5. Get compressed size (from Sharp info event or file stat)
+    const compressedSize = getCompressedSize() ?? (await stat(tempPath)).size;
     const elapsedMs = Math.round(performance.now() - startTime);
-    const savings = compressedSize > 0 ? Math.round((1 - compressedSize / originalSize) * 100) : 0;
+    const savings = Math.round((1 - compressedSize / originalSize) * 100);
     console.log(`WebP: ${humanizeBytes(compressedSize)} (${savings}% saved, ${elapsedMs}ms)`);
 
-    // 6. Copy URL to clipboard and notify
+    // 6. Copy WebP to clipboard, then URL
+    await copyImageToClipboard(tempPath);
     await copyTextToClipboard(uploadResult.url);
     console.log(`Uploaded: ${uploadResult.url} (${savings}% saved)`);
     await notifySuccess(webpFilename, originalSize, compressedSize);
@@ -149,9 +154,9 @@ async function processScreenshot(filePath: string, filename: string, config: Ret
     // 7. Background: SFTP backup + trash (fire-and-forget)
     (async () => {
         try {
-            // Download from S3 and backup to SFTP
+            // Backup to SFTP from local temp file
             await backupToSftp(
-                uploadResult.url,
+                tempPath,
                 webpFilename,
                 config.sftpHost,
                 config.sftpUser,
@@ -163,6 +168,10 @@ async function processScreenshot(filePath: string, filename: string, config: Ret
             // Move original to trash
             await moveToTrash(filePath, config.trashPath);
             console.log(`Trashed: ${filename}`);
+
+            // Clean up temp file
+            await unlink(tempPath).catch(() => {});
+            console.log(`Cleanup complete for ${filename}`);
         } catch (error) {
             console.error("Background cleanup error:", error);
         }
@@ -178,15 +187,6 @@ async function main() {
     console.log(`Backing up to: ${config.sftpUser}@${config.sftpHost}:${config.sftpPath}`);
 
     const processedFiles = new Set<string>();
-
-    // Initial scan - mark existing files as processed @TODO REMOVE THIS LATER
-    const initialFiles = await readdir(config.desktopPath);
-    for (const file of initialFiles) {
-        if (file.startsWith("Screenshot") && file.endsWith(".png")) {
-            processedFiles.add(file);
-        }
-    }
-    console.log(`Found ${processedFiles.size} existing screenshots (will be ignored)`);
 
     while (true) {
         try {
