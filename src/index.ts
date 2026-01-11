@@ -93,6 +93,7 @@ async function processScreenshot(filePath: string, filename: string, config: Ret
 
     // 1. Copy original to clipboard immediately (for instant paste)
     await copyImageToClipboard(filePath);
+    const clipboardTime = Date.now();
     await notify(filename, "Started uploading!");
 
     // 2. Parse date from filename
@@ -145,7 +146,12 @@ async function processScreenshot(filePath: string, filename: string, config: Ret
     const savings = Math.round((1 - compressedSize / originalSize) * 100);
     console.log(`WebP: ${humanizeBytes(compressedSize)} (${savings}% saved, ${elapsedMs}ms)`);
 
-    // 6. Copy WebP to clipboard, then URL
+    // 6. Wait for clipboard grace period, then copy WebP to clipboard, then URL
+    const clipboardElapsed = Date.now() - clipboardTime;
+    const clipboardRemaining = 1000 - clipboardElapsed;
+    if (clipboardRemaining > 0) {
+        await Bun.sleep(clipboardRemaining);
+    }
     await copyImageToClipboard(tempPath);
     await copyTextToClipboard(uploadResult.url);
     console.log(`Uploaded: ${uploadResult.url} (${savings}% saved)`);
