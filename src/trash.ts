@@ -9,9 +9,9 @@ export async function moveToTrash(filePath: string, trashPath: string): Promise<
     // Handle conflicts by appending timestamp
     if (existsSync(destPath)) {
         const timestamp = Date.now();
-        const ext = filename.includes(".") ? `.${filename.split(".").pop()}` : "";
+        const ext = filename.includes(".") ? `.${filename.split(".").pop() ?? ""}` : "";
         const base = filename.replace(ext, "");
-        destPath = join(trashPath, `${base}-${timestamp}${ext}`);
+        destPath = join(trashPath, `${base}-${String(timestamp)}${ext}`);
     }
 
     try {

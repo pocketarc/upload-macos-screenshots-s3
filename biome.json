@@ -1,14 +1,13 @@
 {
-    "$schema": "https://biomejs.dev/schemas/2.3.10/schema.json",
+    "$schema": "https://biomejs.dev/schemas/2.4.7/schema.json",
     "vcs": {
         "enabled": true,
         "clientKind": "git",
-        "useIgnoreFile": true,
-        "defaultBranch": "main"
+        "useIgnoreFile": true
     },
     "files": {
-        "ignoreUnknown": false,
-        "includes": ["**", "!**/node_modules", "!**/.next", "!**/out", "!**/playwright-report", "!**/test-results"]
+        "ignoreUnknown": true,
+        "includes": ["**"]
     },
     "formatter": {
         "enabled": true,
@@ -19,29 +18,37 @@
         "lineEnding": "lf",
         "lineWidth": 120
     },
-    "assist": {
-        "actions": {
-            "source": {
-                "organizeImports": "on"
-            }
-        }
-    },
+    "assist": { "actions": { "source": { "organizeImports": "on" } } },
     "linter": {
         "enabled": true,
+        "domains": {
+            "project": "all",
+            "types": "all"
+        },
         "rules": {
+            "complexity": {
+                "noExcessiveCognitiveComplexity": {
+                    "level": "error",
+                    "options": { "maxAllowedComplexity": 15 }
+                },
+                "useLiteralKeys": {
+                    "level": "off"
+                }
+            },
             "suspicious": {
-                "noArrayIndexKey": "warn"
+                "noConsole": {
+                    "level": "error",
+                    "options": { "allow": ["log", "info", "warn", "error"] }
+                },
+                "noAlert": "error"
             },
             "correctness": {
-                "noUndeclaredDependencies": "error",
-                "noUndeclaredVariables": "error"
+                "noUndeclaredVariables": "off",
+                "noUnresolvedImports": "off"
             },
             "style": {
+                "noProcessEnv": "error",
                 "noDefaultExport": "error",
-                "useBlockStatements": {
-                    "level": "error",
-                    "fix": "safe"
-                },
                 "noUnusedTemplateLiteral": {
                     "level": "error",
                     "fix": "safe"
@@ -52,41 +59,27 @@
                         "strictCase": false,
                         "conventions": [
                             {
-                                "selector": {
-                                    "kind": "typeProperty"
-                                },
+                                "selector": { "kind": "typeProperty" },
                                 "formats": ["snake_case", "camelCase"]
                             },
                             {
-                                "selector": {
-                                    "kind": "objectLiteralProperty"
-                                },
+                                "selector": { "kind": "objectLiteralProperty" },
                                 "formats": ["snake_case", "camelCase", "CONSTANT_CASE"]
                             },
                             {
-                                "selector": {
-                                    "kind": "classProperty"
-                                },
+                                "selector": { "kind": "classProperty" },
                                 "formats": ["snake_case", "camelCase"]
                             },
                             {
-                                "selector": {
-                                    "kind": "classGetter"
-                                },
+                                "selector": { "kind": "classGetter" },
                                 "formats": ["snake_case", "camelCase"]
                             }
                         ]
                     }
-                },
-                "noParameterAssign": "error",
-                "useAsConstAssertion": "error",
-                "useDefaultParameterLast": "error",
-                "useEnumInitializers": "error",
-                "useSelfClosingElements": "error",
-                "useSingleVarDeclarator": "error",
-                "useNumberNamespace": "error",
-                "noInferrableTypes": "error",
-                "noUselessElse": "error"
+                }
+            },
+            "nursery": {
+                "useExplicitType": "error"
             }
         }
     },
