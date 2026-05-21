@@ -1,30 +1,13 @@
 import { stat } from "node:fs/promises";
-import { PassThrough } from "node:stream";
 import sharp from "sharp";
 
-export interface CompressionStream {
-    stream: PassThrough;
+export interface CompressionResult {
     originalSize: number;
-    getCompressedSize: () => number | undefined;
+    compressedSize: number;
 }
 
-export async function createCompressionStream(inputPath: string): Promise<CompressionStream> {
+export async function compressToWebp(inputPath: string, outputPath: string): Promise<CompressionResult> {
     const originalStat = await stat(inputPath);
-    let compressedSize: number | undefined;
-
-    const passThrough = new PassThrough();
-
-    sharp(inputPath)
-        .webp({ lossless: true, effort: 6 })
-        .on("info", (info) => {
-            compressedSize = info.size;
-            console.log(`  [Sharp] format=${info.format}, size=${info.size} bytes`);
-        })
-        .pipe(passThrough);
-
-    return {
-        stream: passThrough,
-        originalSize: originalStat.size,
-        getCompressedSize: () => compressedSize,
-    };
+    const info = await sharp(inputPath).webp({ lossless: true, effort: 6 }).toFile(outputPath);
+    return { originalSize: originalStat.size, compressedSize: info.size };
 }

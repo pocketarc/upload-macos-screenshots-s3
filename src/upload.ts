@@ -1,5 +1,5 @@
-import type { Readable } from "node:stream";
 import { S3Client } from "bun";
+import type { S3Config } from "./config.ts";
 
 export interface UploadResult {
     success: boolean;
@@ -7,41 +7,21 @@ export interface UploadResult {
     error?: string;
 }
 
-export async function uploadStreamToS3(
-    stream: Readable,
-    filename: string,
-    bucket: string,
-    region: string,
-    baseUrl: string,
-    accessKeyId: string,
-    secretAccessKey: string,
-    localPath?: string,
-): Promise<UploadResult> {
+export async function uploadFileToS3(localPath: string, filename: string, config: S3Config): Promise<UploadResult> {
     const client = new S3Client({
-        accessKeyId,
-        secretAccessKey,
-        endpoint: `https://${bucket}.s3.${region}.amazonaws.com`,
+        accessKeyId: config.accessKeyId,
+        secretAccessKey: config.secretAccessKey,
+        endpoint: `https://${config.bucket}.s3.${config.region}.amazonaws.com`,
         virtualHostedStyle: true,
     });
 
     const contentType = filename.endsWith(".webp") ? "image/webp" : "image/png";
-    const s3Writer = client.file(filename).writer({ type: contentType });
-    const localWriter = localPath ? Bun.file(localPath).writer() : null;
 
     try {
-        // Pump chunks to both S3 and local file
-        for await (const chunk of stream) {
-            s3Writer.write(chunk);
-            localWriter?.write(chunk);
-        }
-        await s3Writer.end();
-        if (localWriter) {
-            await localWriter.end();
-        }
-
-        const url = `${baseUrl.replace(/\/$/, "")}/${filename}`;
+        await client.file(filename).write(Bun.file(localPath), { type: contentType });
+        const url = `${config.baseUrl.replace(/\/$/, "")}/${filename}`;
         return { success: true, url };
     } catch (error) {
-        return { success: false, error: (error as Error).message };
+        return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
 }
