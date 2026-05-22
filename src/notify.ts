@@ -1,4 +1,4 @@
-export async function notify(message: string, title = "Screenshot Uploader"): Promise<void> {
+export async function notify(message: string, title: string): Promise<void> {
     const escapedMessage = message.replace(/"/g, '\\"');
     const escapedTitle = title.replace(/"/g, '\\"');
     await Bun.spawn([
@@ -8,7 +8,7 @@ export async function notify(message: string, title = "Screenshot Uploader"): Pr
     ]).exited;
 }
 
-export async function notifyError(message: string, title = "Upload Error"): Promise<void> {
+export async function notifyError(message: string, title: string): Promise<void> {
     const escapedMessage = message.substring(0, 200).replace(/"/g, '\\"');
     const escapedTitle = title.replace(/"/g, '\\"');
     console.error(`[${title}] ${message}`);
@@ -23,6 +23,6 @@ export async function notifySuccess(filename: string, originalSize: number, comp
     const savings = Math.round((1 - compressedSize / originalSize) * 100);
     const originalKb = Math.round(originalSize / 1024);
     const compressedKb = Math.round(compressedSize / 1024);
-    const message = `${filename} (${originalKb}KB → ${compressedKb}KB, ${savings}% saved)`;
-    await notify(message, "Image Uploaded!");
+    const message = `${filename} (${String(originalKb)}KB → ${String(compressedKb)}KB, ${String(savings)}% saved)`;
+    await notify(message, "Screenshot Saved");
 }

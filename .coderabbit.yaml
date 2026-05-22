@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: "en-US"
+early_access: false
+reviews:
+    profile: "assertive"
+    request_changes_workflow: false
+    high_level_summary: true
+    poem: false
+    review_status: true
+    review_details: true
+    collapse_walkthrough: true
+    sequence_diagrams: true
+    auto_review:
+        enabled: true
+        drafts: false
+    path_filters:
+        - "!node_modules/**"
+        - "!bun.lock"
+    path_instructions:
+        - path: "src/**"
+          instructions: >
+              This is a Bun + TypeScript macOS screenshot uploader: it watches the
+              Desktop, compresses screenshots to WebP, and fans each one out to
+              S3 / SFTP / local-archive destinations. Static analysis runs at maximum
+              strictness (Biome with the project and types domains, plus
+              typescript-eslint strictTypeChecked). Prefer runtime guards over type
+              casts, assertions, or lint-ignore comments.
+    tools:
+        gitleaks:
+            enabled: true
+        trufflehog:
+            enabled: true
+        shellcheck:
+            enabled: true
+        yamllint:
+            enabled: true
+        markdownlint:
+            enabled: true
+knowledge_base:
+    code_guidelines:
+        enabled: true
+chat:
+    auto_reply: true
